@@ -65,7 +65,7 @@ before it is allowed to change anything.
 | `app/agents/` | 16-role roster, capability-based selection, the fenced file patch protocol, `LLMCoderAgent` / `LLMReviewAgent` with bounded repair rounds, and `AgentExecutor`, which gives every task its own worktree. |
 | `app/git/` | One async wrapper around the git CLI. Worktree lifecycle, three-way merge, conflict preview and resolution. |
 | `app/integrator/` | Test detection and execution, change collection, regression detection, conflict resolution, final review. |
-| `app/llm/` | Provider abstraction: OpenCode CLI, Ollama, any OpenAI-compatible API, plus deterministic mock providers. |
+| `app/llm/` | Provider abstraction: OpenCode CLI, Ollama (local or Cloud), any OpenAI-compatible API, and Gemini. |
 | `app/sandbox/` | Docker isolation with a locked-down policy; explicit `NoSandbox` when disabled. |
 | `app/api/` | FastAPI routes, SSE event stream, container wiring. |
 | `app/orchestrator/` | The seam between all of the above. |
@@ -123,7 +123,7 @@ Everything is environment-driven (`app/config.py`); nothing hard-codes a model.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `LLM_PROVIDER` | `mock` | `mock`, `rule-based`, `opencode`, `ollama`, `api`, `gemini` |
+| `LLM_PROVIDER` | `opencode` | `opencode`, `ollama`, `api`, `gemini` |
 | `LLM_MODEL` | *(empty)* | Overrides the provider default when set |
 | `OPENCODE_MODEL` | `nemotron-3.5-lightning-free` | Requires the CLI on `PATH` |
 | `OLLAMA_BASE_URL` / `OLLAMA_MODEL` | `http://localhost:11434` / see below | Local server *or* Ollama Cloud |
@@ -133,10 +133,9 @@ Everything is environment-driven (`app/config.py`); nothing hard-codes a model.
 | `API_BASE_URL` / `API_MODEL` / `API_KEY` | OpenAI / `gpt-4o-mini` / — | Any OpenAI-compatible endpoint |
 | `LLM_TIMEOUT_SECONDS` / `LLM_MAX_RETRIES` | `300` / `2` | Retries use capped exponential backoff |
 
-`mock` and `rule-based` run the entire pipeline offline with no API key — that
-is what the test suite uses. They plan and integrate for real, but the code they
-"write" is a placeholder, so they demonstrate the machinery rather than do useful
-work. Point the system at a real model to get real changes.
+Set `LLM_PROVIDER` to a real model backend before running a task. The test
+suite runs fully offline against isolated fixtures; production runs require
+one of the providers above.
 
 ### Ollama: local server, or Ollama Cloud
 
@@ -273,8 +272,8 @@ to hold them in place.
 python -m pytest app/tests/ -q
 ```
 
-The suite is offline and deterministic by construction: mock agents and mock LLM
-providers throughout, every repository built in a temp directory, and real `git`
+The suite is offline and deterministic by construction: isolated fixtures
+throughout, every repository built in a temp directory, and real `git`
 so worktree and merge behaviour is genuinely exercised rather than faked.
 
 | Module | Covers |
