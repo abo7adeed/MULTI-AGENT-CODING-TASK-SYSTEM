@@ -1,0 +1,15 @@
+# Runtime dependencies.
+#
+# Kept deliberately short: git is driven through the CLI via asyncio
+# subprocesses, so there is no GitPython here on purpose -- one code path for
+# git means one set of behaviours to reason about.
+
+fastapi==0.137.1
+uvicorn[standard]==0.54.0
+pydantic==2.13.4
+pydantic-settings==2.14.1
+httpx==0.28.1
+
+# Test dependencies (the suite runs offline against mock agents).
+pytest==9.1.1
+pytest-asyncio==1.4.0

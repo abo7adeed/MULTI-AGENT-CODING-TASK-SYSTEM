@@ -1,0 +1,46 @@
+FROM python:3.11-slim
+
+# git is the whole isolation mechanism (one worktree per agent), so it is a
+# hard runtime requirement rather than something to discover at run time.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /srv/app
+
+# Commits are made by the orchestrator on the user's behalf. A container without
+# an identity fails every commit, which surfaces much later as "agent produced
+# no branch" -- so it is configured here.
+RUN git config --global user.email "agents@orchestrator.local" \
+    && git config --global user.name "Orchestrator Agent" \
+    && git config --global init.defaultBranch main \
+    && git config --global --add safe.directory '*'
+
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app/ ./app/
+COPY pyproject.toml ./
+
+# The API writes its state database and one worktree per agent task, so both
+# must exist and be writable before the process drops privileges.
+RUN useradd --create-home --uid 1000 orchestrator \
+    && mkdir -p /srv/app/state /srv/app/workspaces \
+    && chown -R orchestrator:orchestrator /srv/app
+USER orchestrator
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    STATE_DB_PATH=/srv/app/state/orchestrations.db \
+    WORKSPACE_ROOT=/srv/app/workspaces \
+    API_HOST=0.0.0.0 \
+    API_PORT=8000 \
+    SANDBOX_ENABLED=false
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request,os,sys; \
+sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:'+os.environ.get('API_PORT','8000')+'/health', timeout=4).status==200 else 1)"
+
+CMD ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

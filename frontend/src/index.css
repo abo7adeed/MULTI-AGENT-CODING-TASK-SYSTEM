@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+/*
+ * Tailwind v4 entry point.
+ *
+ * The previous file used the v3 `@tailwind base/components/utilities`
+ * directives against a Tailwind 4 toolchain. That "succeeded" at build time
+ * but emitted zero utility rules, so every class in the app was dead and the
+ * dashboard rendered as unstyled HTML. v4 requires the @import form and
+ * discovers sources from the CSS file's location.
+ */
+
+@theme {
+  --color-surface: #0b1020;
+  --color-surface-2: #111834;
+  --color-surface-3: #18213f;
+  --color-edge: #24304f;
+  --color-ink: #e6ebff;
+  --color-ink-dim: #93a0c4;
+  --color-brand: #5b8cff;
+  --color-brand-2: #8b5cf6;
+  --color-ok: #34d399;
+  --color-warn: #fbbf24;
+  --color-bad: #f87171;
+  --color-info: #38bdf8;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+code,
+pre,
+.mono {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* Subtle grid so the graph area reads as a canvas rather than empty space. */
+.canvas-grid {
+  background-image:
+    linear-gradient(rgba(91, 140, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(91, 140, 255, 0.07) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* Running nodes pulse; everything else is static. */
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(56, 189, 248, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0);
+  }
+}
+.running-ring {
+  animation: pulse-ring 1.8s ease-out infinite;
+}
+
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+.edge-flow {
+  stroke-dasharray: 4 3;
+  animation: dash-flow 0.6s linear infinite;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-edge);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #33436e;
+}

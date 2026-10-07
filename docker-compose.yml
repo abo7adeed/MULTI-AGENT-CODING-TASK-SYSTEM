@@ -1,0 +1,106 @@
+# Multi-agent coding task system.
+#
+#   docker compose up --build              # API + UI on :8000 / :3000
+#   docker compose --profile ollama up     # also start a local Ollama
+#
+# The API needs a repository to operate on. `repos/` is bind-mounted at
+# /repos: point a project at /repos/<name> when creating it through the UI or
+# the API, and the agents' worktrees are created beside it.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      # ── LLM provider ──────────────────────────────────────────────────────
+      # mock | gemini | opencode | ollama | api | rule-based
+      # Leave this on mock to try the pipeline without a model. To run real
+      # agents, either set LLM_PROVIDER=ollama with OLLAMA_BASE_URL pointing at
+      # a server the container can reach (the `ollama` profile below, or
+      # https://ollama.com with an API key), or point it at any other provider.
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      LLM_MODEL: ${LLM_MODEL:-}
+      OPENCODE_MODEL: ${OPENCODE_MODEL:-nemotron-3.5-lightning-free}
+      # Inside the compose network the `ollama` service is the default; set
+      # OLLAMA_BASE_URL=https://ollama.com and OLLAMA_API_KEY to use the cloud.
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5-coder:7b}
+      OLLAMA_NUM_PREDICT: ${OLLAMA_NUM_PREDICT:-8192}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      API_BASE_URL: ${API_BASE_URL:-https://api.openai.com/v1}
+      API_MODEL: ${API_MODEL:-gpt-4o-mini}
+      API_KEY: ${API_KEY:-}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-300}
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-2}
+
+      # ── Scheduling ────────────────────────────────────────────────────────
+      MAX_PARALLEL_TASKS: ${MAX_PARALLEL_TASKS:-4}
+      MAX_TASK_RETRIES: ${MAX_TASK_RETRIES:-3}
+      TASK_TIMEOUT_SECONDS: ${TASK_TIMEOUT_SECONDS:-1800}
+      ORCHESTRATOR_TIMEOUT_SECONDS: ${ORCHESTRATOR_TIMEOUT_SECONDS:-7200}
+
+      # ── Integrator ────────────────────────────────────────────────────────
+      # Leave empty to auto-detect from each repository.
+      TEST_COMMAND: ${TEST_COMMAND:-}
+      TEST_TIMEOUT_SECONDS: ${TEST_TIMEOUT_SECONDS:-900}
+      MAX_CONFLICT_RESOLUTION_ROUNDS: ${MAX_CONFLICT_RESOLUTION_ROUNDS:-2}
+
+      # ── Sandbox ───────────────────────────────────────────────────────────
+      # Agent code is executed. Leave this off only for local experimentation:
+      # with it off, agents run directly on the host.
+      SANDBOX_ENABLED: ${SANDBOX_ENABLED:-false}
+      SANDBOX_IMAGE: ${SANDBOX_IMAGE:-python:3.11-slim}
+      SANDBOX_MEMORY: ${SANDBOX_MEMORY:-2g}
+      SANDBOX_CPUS: ${SANDBOX_CPUS:-2.0}
+      SANDBOX_PIDS_LIMIT: ${SANDBOX_PIDS_LIMIT:-256}
+      SANDBOX_NETWORK: ${SANDBOX_NETWORK:-none}
+
+      # ── API ───────────────────────────────────────────────────────────────
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_JSON: ${LOG_JSON:-false}
+    volumes:
+      - ./state:/srv/app/state
+      - ./workspaces:/srv/app/workspaces
+      - ./repos:/repos
+    networks:
+      - agent-net
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+      args:
+        # Same-origin requests: nginx proxies /api to the backend.
+        VITE_API_URL: /api
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    networks:
+      - agent-net
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - agent-net
+    profiles:
+      - ollama
+
+networks:
+  agent-net:
+    driver: bridge
+
+volumes:
+  ollama-data:
