@@ -224,3 +224,6 @@ state/
 workspaces/
 repos/
 .freebuff/
+
+# Local scratch calculator test (not part of the suite)
+test_calculator.py
